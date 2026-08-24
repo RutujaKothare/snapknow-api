@@ -81,13 +81,19 @@ _api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
 
 def _load_api_keys() -> dict:
-    if not os.path.exists(API_KEYS_FILE):
-        return {}
-    try:
-        with open(API_KEYS_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        return {}
+    if os.path.exists(API_KEYS_FILE):
+        try:
+            with open(API_KEYS_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return {}
+    env_keys = os.environ.get("API_KEYS_JSON")
+    if env_keys:
+        try:
+            return json.loads(env_keys)
+        except Exception:
+            return {}
+    return {}
 
 
 def _save_api_keys(keys: dict):
