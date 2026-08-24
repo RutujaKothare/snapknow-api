@@ -3,7 +3,7 @@
 An AI-powered web app that:
 
 1. **Image Captioning + Knowledge** — upload a photo (animal, flower, food, vegetable, object, anything)
-   and Gemini vision model captions it and gives you a full write-up: category, name/species,
+   and Gemini or Claude's vision model captions it and gives you a full write-up: category, name/species,
    description, detailed facts (habitat/diet for animals, nutrition/origin for food, etc.), and a fun fact.
 2. **Text-to-Speech** — click "Read Aloud" to have the result spoken back to you, in your chosen language.
 3. **Speech-to-Text** — type or record a follow-up voice question about the image and get it answered.
@@ -14,6 +14,29 @@ An AI-powered web app that:
    after you've already analyzed a photo automatically re-explains that same photo in the new language.
 6. **Persistent history** — every analyzed image is saved to a local `snapknow_history.json` file next
    to `app.py`, so your history survives closing the browser tab or restarting the app.
+7. **Wikipedia lookup** — a verified summary and source link for whatever was identified (no API key needed).
+8. **USDA nutrition facts** — real calorie/protein/carb data for Food, Vegetable, and Fruit results
+   (free key from fdc.nal.usda.gov/api-key-signup, or the shared DEMO_KEY for light testing).
+9. **GBIF species data** — scientific name, taxonomy, and conservation status for Animal and Flower
+   results (no API key needed).
+10. **Unsplash reference photos** — 2-3 real photos of the identified subject, for a visual sanity check
+    (free key from unsplash.com/developers).
+11. **QR code in PDF reports** — every downloaded PDF includes a scannable QR code linking to a Wikipedia
+    search for the identified subject (no API key needed).
+12. **Recipes for Food results** — a full ingredient list and cooking instructions from TheMealDB
+    (no API key needed).
+13. **Weather for Place results** — current conditions and temperature for identified places/landmarks
+    (free key from openweathermap.org).
+
+## Extra API keys (optional)
+
+Wikipedia, GBIF, TheMealDB, and the QR code generator work immediately with no signup. USDA,
+Unsplash, and OpenWeatherMap are optional — leave their sidebar fields blank to skip those features,
+or grab free keys here:
+
+- USDA FoodData Central: https://fdc.nal.usda.gov/api-key-signup
+- Unsplash: https://unsplash.com/developers
+- OpenWeatherMap: https://openweathermap.org/api
 
 ## 1. Setup
 
@@ -48,6 +71,15 @@ The app supports two providers — pick one in the sidebar.
    list in `app.py`. As of August 2026, `gemini-3.6-flash` and `gemini-3.5-flash-lite` are the
    current free-tier-friendly models; `gemini-3.1-pro-preview` is paid-only.
 
+### Option B — Anthropic Claude (paid, more accurate on some tasks)
+
+1. Go to https://console.anthropic.com/
+2. Create an account / sign in, add a payment method, then create an API key.
+3. There's no free tier for the Claude API — you'll need at least a small amount of credit.
+
+Either way, you'll paste the key into the app's sidebar when you run it — it is only kept in
+your browser session and never stored on disk or sent anywhere except that provider's API.
+
 ## 3. Run the app
 
 ```bash
@@ -58,7 +90,7 @@ This opens the app in your browser (usually at `http://localhost:8501`).
 
 ## 4. How to use it
 
-1. Paste your Gemini API key into the sidebar and pick a model (Sonnet is a good default).
+1. Paste your Anthropic API key into the sidebar and pick a model (Sonnet is a good default).
 2. Upload a photo using the file uploader.
 3. Click **🔍 Analyze Image** — Claude will look at the picture and return:
    - Caption
@@ -76,9 +108,47 @@ This opens the app in your browser (usually at `http://localhost:8501`).
 
 ```
 image_ai_project/
-├── app.py              # Main Streamlit application (all logic lives here)
+├── app.py              # Streamlit web app (UI, voice, PDF, history)
+├── core.py             # Shared image-analysis logic (used by both app.py and api_server.py)
+├── api_server.py        # Standalone FastAPI REST API — SnapKnow's own API
 ├── requirements.txt    # Python dependencies
 └── README.md           # This file
+```
+
+`app.py` and `api_server.py` both import their core logic (prompting, response
+parsing, image resizing, translation) from `core.py`, so there is exactly one
+implementation behind the web UI and the API — they can't drift out of sync.
+
+## 5a. Running your own API (api_server.py)
+
+On top of the Streamlit app, this project also exposes its own REST API, built
+with FastAPI, so other programs (or a professor testing it independently) can
+call SnapKnow's image analysis directly over HTTP.
+
+```bash
+uvicorn api_server:app --reload
+```
+
+Then open **http://127.0.0.1:8000/docs** — FastAPI auto-generates interactive
+Swagger documentation where you can try the API directly from the browser.
+
+**Endpoints:**
+
+- `POST /analyze` — upload an image (`file`) plus `provider` (`gemini` or `claude`),
+  `model_name`, `api_key`, and optionally `language` and `question`. Returns the
+  parsed result (caption, category, name, description, details, fun fact) as JSON.
+- `POST /translate` — send an already-analyzed `result` dict plus a `target_language`
+  to translate it, without re-uploading the image.
+- `GET /health` — simple health check, returns `{"status": "ok"}`.
+
+Example with `curl`:
+
+```bash
+curl -X POST http://127.0.0.1:8000/analyze \
+  -F "file=@/path/to/photo.jpg" \
+  -F "provider=gemini" \
+  -F "model_name=gemini-3.6-flash" \
+  -F "api_key=YOUR_GEMINI_API_KEY"
 ```
 
 ## 6. Ideas to extend this project
