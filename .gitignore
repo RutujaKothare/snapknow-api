@@ -13,3 +13,4 @@ snapknow_history.json
 # OS/editor cruft
 .DS_Store
 .vscode/api_keys.json 
+api_keys.json 
